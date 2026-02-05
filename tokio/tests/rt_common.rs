@@ -86,7 +86,7 @@ macro_rules! rt_test {
                     .into()
             }
         }
-    }
+    };
 }
 
 #[test]
@@ -997,7 +997,7 @@ rt_test! {
         drop(rt);
     }
 
-    #[cfg(not(any(target_os="wasi", target_env = "sgx")))] // Wasi doesn't support UDP or bind(), SGX doesn't support UDP
+    #[cfg(not(any(target_os="wasi", target_env = "sgx", target_env = "fortanixvme")))] // Wasi doesn't support UDP or bind(), SGX doesn't support UDP
     #[test]
     fn io_notify_while_shutting_down() {
         use tokio::net::UdpSocket;

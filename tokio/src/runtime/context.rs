@@ -1,8 +1,7 @@
-use crate::loom::thread::AccessError;
-use crate::runtime::coop;
-
 use std::cell::Cell;
 
+use crate::loom::thread::AccessError;
+use crate::runtime::coop;
 #[cfg(any(feature = "rt", feature = "macros"))]
 use crate::util::rand::FastRand;
 
@@ -138,7 +137,7 @@ pub(super) fn budget<R>(f: impl FnOnce(&Cell<coop::Budget>) -> R) -> Result<R, A
 cfg_rt! {
     use crate::runtime::ThreadId;
 
-    #[cfg(target_env = "sgx")]
+    #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
     pub(crate) fn has_thread_id() -> bool {
         CONTEXT.try_with(|ctx| {
             ctx.thread_id.get().is_some()

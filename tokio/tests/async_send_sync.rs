@@ -8,6 +8,7 @@ use std::io::SeekFrom;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::rc::Rc;
+
 use tokio::net::TcpStream;
 use tokio::time::{Duration, Instant};
 
@@ -133,7 +134,7 @@ macro_rules! cfg_not_wasi {
             #[cfg(not(target_os = "wasi"))]
             $item
         )*
-    }
+    };
 }
 
 // Manually re-implementation of `async_assert_fn` for `poll_fn`. The macro
@@ -151,7 +152,7 @@ const _: fn() = || {
     AmbiguousIfUnpin::some_item(&f);
 };
 
-#[cfg(not(target_env = "sgx"))]
+#[cfg(not(any(target_env = "sgx", target_env = "fortanixvme")))]
 cfg_not_wasi! {
     mod fs {
         use super::*;
@@ -198,7 +199,7 @@ cfg_not_wasi! {
 }
 
 cfg_not_wasi! {
-    #[cfg(not(target_env = "sgx"))]
+    #[cfg(not(any(target_env = "sgx", target_env = "fortanixvme")))]
     assert_value!(tokio::net::TcpSocket: Send & Sync & Unpin);
     async_assert_fn!(tokio::net::TcpListener::bind(SocketAddr): Send & Sync & !Unpin);
     async_assert_fn!(tokio::net::TcpStream::connect(SocketAddr): Send & Sync & !Unpin);
@@ -218,7 +219,7 @@ async_assert_fn!(tokio::net::TcpStream::ready(_, tokio::io::Interest): Send & Sy
 async_assert_fn!(tokio::net::TcpStream::writable(_): Send & Sync & !Unpin);
 
 // Wasi and SGX do not support UDP
-#[cfg(not(target_env = "sgx"))]
+#[cfg(not(any(target_env = "sgx", target_env = "fortanixvme")))]
 cfg_not_wasi! {
     mod udp_socket {
         use super::*;
@@ -240,8 +241,9 @@ async_assert_fn!(tokio::net::tcp::ReadHalf::peek(_, &mut [u8]): Send & Sync & !U
 
 #[cfg(unix)]
 mod unix_datagram {
-    use super::*;
     use tokio::net::*;
+
+    use super::*;
     assert_value!(UnixDatagram: Send & Sync & Unpin);
     assert_value!(UnixListener: Send & Sync & Unpin);
     assert_value!(UnixStream: Send & Sync & Unpin);
@@ -268,8 +270,9 @@ mod unix_datagram {
 
 #[cfg(unix)]
 mod unix_pipe {
-    use super::*;
     use tokio::net::unix::pipe::*;
+
+    use super::*;
     assert_value!(OpenOptions: Send & Sync & Unpin);
     assert_value!(Receiver: Send & Sync & Unpin);
     assert_value!(Sender: Send & Sync & Unpin);
@@ -281,8 +284,9 @@ mod unix_pipe {
 
 #[cfg(windows)]
 mod windows_named_pipe {
-    use super::*;
     use tokio::net::windows::named_pipe::*;
+
+    use super::*;
     assert_value!(ClientOptions: Send & Sync & Unpin);
     assert_value!(NamedPipeClient: Send & Sync & Unpin);
     assert_value!(NamedPipeServer: Send & Sync & Unpin);
@@ -299,7 +303,7 @@ mod windows_named_pipe {
     async_assert_fn!(NamedPipeServer::writable(_): Send & Sync & !Unpin);
 }
 
-#[cfg(not(target_env = "sgx"))]
+#[cfg(not(any(target_env = "sgx", target_env = "fortanixvme")))]
 cfg_not_wasi! {
     mod test_process {
         use super::*;
@@ -713,8 +717,9 @@ async_assert_fn!(tokio::io::AsyncWriteExt::shutdown(&mut BoxAsyncWrite): Send & 
 
 #[cfg(unix)]
 mod unix_asyncfd {
-    use super::*;
     use tokio::io::unix::*;
+
+    use super::*;
 
     struct ImplsFd<T> {
         _t: T,

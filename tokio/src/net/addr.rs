@@ -1,8 +1,7 @@
-use std::future;
-use std::io;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
-#[cfg(target_env = "sgx")]
+#[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
 use std::iter;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
+use std::{future, io};
 
 /// Converts or resolves without blocking to one or more `SocketAddr` values.
 ///
@@ -41,15 +40,14 @@ where
 {
     type Iter = T::Iter;
     type Future = T::Future;
-    #[cfg(target_env = "sgx")]
+    #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
     type StringIter = T::StringIter;
-
 
     fn to_socket_addrs(&self, _: sealed::Internal) -> Self::Future {
         (**self).to_socket_addrs(sealed::Internal)
     }
 
-    #[cfg(target_env = "sgx")]
+    #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
     fn to_string_addrs(&self) -> Self::StringIter {
         (**self).to_string_addrs()
     }
@@ -62,7 +60,7 @@ impl ToSocketAddrs for SocketAddr {}
 impl sealed::ToSocketAddrsPriv for SocketAddr {
     type Iter = std::option::IntoIter<SocketAddr>;
     type Future = ReadyFuture<Self::Iter>;
-    #[cfg(target_env = "sgx")]
+    #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
     type StringIter = iter::Once<String>;
 
     fn to_socket_addrs(&self, _: sealed::Internal) -> Self::Future {
@@ -70,7 +68,7 @@ impl sealed::ToSocketAddrsPriv for SocketAddr {
         future::ready(Ok(iter))
     }
 
-    #[cfg(target_env = "sgx")]
+    #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
     fn to_string_addrs(&self) -> Self::StringIter {
         iter::once(self.to_string())
     }
@@ -83,14 +81,14 @@ impl ToSocketAddrs for SocketAddrV4 {}
 impl sealed::ToSocketAddrsPriv for SocketAddrV4 {
     type Iter = std::option::IntoIter<SocketAddr>;
     type Future = ReadyFuture<Self::Iter>;
-    #[cfg(target_env = "sgx")]
+    #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
     type StringIter = iter::Once<String>;
 
     fn to_socket_addrs(&self, _: sealed::Internal) -> Self::Future {
         SocketAddr::V4(*self).to_socket_addrs(sealed::Internal)
     }
 
-    #[cfg(target_env = "sgx")]
+    #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
     fn to_string_addrs(&self) -> Self::StringIter {
         iter::once(self.to_string())
     }
@@ -103,14 +101,14 @@ impl ToSocketAddrs for SocketAddrV6 {}
 impl sealed::ToSocketAddrsPriv for SocketAddrV6 {
     type Iter = std::option::IntoIter<SocketAddr>;
     type Future = ReadyFuture<Self::Iter>;
-    #[cfg(target_env = "sgx")]
+    #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
     type StringIter = iter::Once<String>;
 
     fn to_socket_addrs(&self, _: sealed::Internal) -> Self::Future {
         SocketAddr::V6(*self).to_socket_addrs(sealed::Internal)
     }
 
-    #[cfg(target_env = "sgx")]
+    #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
     fn to_string_addrs(&self) -> Self::StringIter {
         iter::once(self.to_string())
     }
@@ -123,7 +121,7 @@ impl ToSocketAddrs for (IpAddr, u16) {}
 impl sealed::ToSocketAddrsPriv for (IpAddr, u16) {
     type Iter = std::option::IntoIter<SocketAddr>;
     type Future = ReadyFuture<Self::Iter>;
-    #[cfg(target_env = "sgx")]
+    #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
     type StringIter = iter::Once<String>;
 
     fn to_socket_addrs(&self, _: sealed::Internal) -> Self::Future {
@@ -131,7 +129,7 @@ impl sealed::ToSocketAddrsPriv for (IpAddr, u16) {
         future::ready(Ok(iter))
     }
 
-    #[cfg(target_env = "sgx")]
+    #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
     fn to_string_addrs(&self) -> Self::StringIter {
         iter::once(SocketAddr::from(*self).to_string())
     }
@@ -144,7 +142,7 @@ impl ToSocketAddrs for (Ipv4Addr, u16) {}
 impl sealed::ToSocketAddrsPriv for (Ipv4Addr, u16) {
     type Iter = std::option::IntoIter<SocketAddr>;
     type Future = ReadyFuture<Self::Iter>;
-    #[cfg(target_env = "sgx")]
+    #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
     type StringIter = iter::Once<String>;
 
     fn to_socket_addrs(&self, _: sealed::Internal) -> Self::Future {
@@ -152,7 +150,7 @@ impl sealed::ToSocketAddrsPriv for (Ipv4Addr, u16) {
         SocketAddrV4::new(ip, port).to_socket_addrs(sealed::Internal)
     }
 
-    #[cfg(target_env = "sgx")]
+    #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
     fn to_string_addrs(&self) -> Self::StringIter {
         iter::once(SocketAddr::from(*self).to_string())
     }
@@ -165,7 +163,7 @@ impl ToSocketAddrs for (Ipv6Addr, u16) {}
 impl sealed::ToSocketAddrsPriv for (Ipv6Addr, u16) {
     type Iter = std::option::IntoIter<SocketAddr>;
     type Future = ReadyFuture<Self::Iter>;
-    #[cfg(target_env = "sgx")]
+    #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
     type StringIter = iter::Once<String>;
 
     fn to_socket_addrs(&self, _: sealed::Internal) -> Self::Future {
@@ -173,7 +171,7 @@ impl sealed::ToSocketAddrsPriv for (Ipv6Addr, u16) {
         SocketAddrV6::new(ip, port, 0, 0).to_socket_addrs(sealed::Internal)
     }
 
-    #[cfg(target_env = "sgx")]
+    #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
     fn to_string_addrs(&self) -> Self::StringIter {
         iter::once(SocketAddr::from(*self).to_string())
     }
@@ -181,11 +179,11 @@ impl sealed::ToSocketAddrsPriv for (Ipv6Addr, u16) {
 
 // ===== impl &[SocketAddr] =====
 
-#[cfg(target_env = "sgx")]
+#[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
 #[derive(Debug)]
 pub struct ToStringIter<I>(I);
 
-#[cfg(target_env = "sgx")]
+#[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
 impl<T, I> Iterator for ToStringIter<I>
 where
     I: Iterator<Item = T>,
@@ -203,7 +201,7 @@ impl ToSocketAddrs for &[SocketAddr] {}
 impl<'a> sealed::ToSocketAddrsPriv for &'a [SocketAddr] {
     type Iter = std::vec::IntoIter<SocketAddr>;
     type Future = ReadyFuture<Self::Iter>;
-    #[cfg(target_env = "sgx")]
+    #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
     type StringIter = ToStringIter<std::slice::Iter<'a, SocketAddr>>;
 
     fn to_socket_addrs(&self, _: sealed::Internal) -> Self::Future {
@@ -226,7 +224,7 @@ impl<'a> sealed::ToSocketAddrsPriv for &'a [SocketAddr] {
         future::ready(Ok(iter))
     }
 
-    #[cfg(target_env = "sgx")]
+    #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
     fn to_string_addrs(&self) -> Self::StringIter {
         ToStringIter(self.iter())
     }
@@ -240,7 +238,7 @@ cfg_net! {
     impl sealed::ToSocketAddrsPriv for str {
         type Iter = sealed::OneOrMore;
         type Future = sealed::MaybeReady;
-        #[cfg(target_env = "sgx")]
+        #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
         type StringIter = iter::Once<String>;
 
         fn to_socket_addrs(&self, _: sealed::Internal) -> Self::Future {
@@ -262,7 +260,7 @@ cfg_net! {
             })))
         }
 
-        #[cfg(target_env = "sgx")]
+        #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
         fn to_string_addrs(&self) -> Self::StringIter {
             iter::once(self.to_owned())
         }
@@ -275,7 +273,7 @@ cfg_net! {
     impl sealed::ToSocketAddrsPriv for (&str, u16) {
         type Iter = sealed::OneOrMore;
         type Future = sealed::MaybeReady;
-        #[cfg(target_env = "sgx")]
+        #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
         type StringIter = iter::Once<String>;
 
         fn to_socket_addrs(&self, _: sealed::Internal) -> Self::Future {
@@ -306,7 +304,7 @@ cfg_net! {
             })))
         }
 
-        #[cfg(target_env = "sgx")]
+        #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
         fn to_string_addrs(&self) -> Self::StringIter {
             iter::once(format!("{}:{}", self.0, self.1))
         }
@@ -319,14 +317,14 @@ cfg_net! {
     impl sealed::ToSocketAddrsPriv for (String, u16) {
         type Iter = sealed::OneOrMore;
         type Future = sealed::MaybeReady;
-        #[cfg(target_env = "sgx")]
+        #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
         type StringIter = iter::Once<String>;
 
         fn to_socket_addrs(&self, _: sealed::Internal) -> Self::Future {
             (self.0.as_str(), self.1).to_socket_addrs(sealed::Internal)
         }
 
-        #[cfg(target_env = "sgx")]
+        #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
         fn to_string_addrs(&self) -> Self::StringIter {
             iter::once(format!("{}:{}", self.0, self.1))
         }
@@ -339,14 +337,14 @@ cfg_net! {
     impl sealed::ToSocketAddrsPriv for String {
         type Iter = <str as sealed::ToSocketAddrsPriv>::Iter;
         type Future = <str as sealed::ToSocketAddrsPriv>::Future;
-        #[cfg(target_env = "sgx")]
+        #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
         type StringIter = iter::Once<String>;
 
         fn to_socket_addrs(&self, _: sealed::Internal) -> Self::Future {
             self[..].to_socket_addrs(sealed::Internal)
         }
 
-        #[cfg(target_env = "sgx")]
+        #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
         fn to_string_addrs(&self) -> Self::StringIter {
             iter::once(self.clone())
         }
@@ -366,14 +364,14 @@ pub(crate) mod sealed {
     pub trait ToSocketAddrsPriv {
         type Iter: Iterator<Item = SocketAddr> + Send + 'static;
         type Future: Future<Output = io::Result<Self::Iter>> + Send + 'static;
-        #[cfg(target_env = "sgx")]
+        #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
         type StringIter: Iterator<Item = String>;
 
         fn to_socket_addrs(&self, internal: Internal) -> Self::Future;
 
         // There is no name resolution mechanism in SGX, but bind and connect
         // take arbitrary addresses represented as strings.
-        #[cfg(target_env = "sgx")]
+        #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
         fn to_string_addrs(&self) -> Self::StringIter;
     }
 

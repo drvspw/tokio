@@ -1,13 +1,14 @@
 #![cfg_attr(not(feature = "net"), allow(dead_code))]
 
-use crate::io::interest::Interest;
-use crate::runtime::io::{Direction, Handle, ReadyEvent, ScheduledIo};
-use crate::runtime::scheduler;
-
-use mio::event::Source;
 use std::io;
 use std::sync::Arc;
 use std::task::{Context, Poll};
+
+use mio::event::Source;
+
+use crate::io::interest::Interest;
+use crate::runtime::io::{Direction, Handle, ReadyEvent, ScheduledIo};
+use crate::runtime::scheduler;
 
 cfg_io_driver! {
     /// Associates an I/O resource with the reactor instance that drives it.
@@ -118,22 +119,14 @@ impl Registration {
 
     // Uses the poll path, requiring the caller to ensure mutual exclusion for
     // correctness. Only the last task to call this function is notified.
-    #[cfg(not(any(target_os = "wasi", target_env = "sgx")))]
-    pub(crate) fn poll_read_io<R>(
-        &self,
-        cx: &mut Context<'_>,
-        f: impl FnMut() -> io::Result<R>,
-    ) -> Poll<io::Result<R>> {
+    #[cfg(not(any(target_os = "wasi", target_env = "sgx", target_env = "fortanixvme")))]
+    pub(crate) fn poll_read_io<R>(&self, cx: &mut Context<'_>, f: impl FnMut() -> io::Result<R>) -> Poll<io::Result<R>> {
         self.poll_io(cx, Direction::Read, f)
     }
 
     // Uses the poll path, requiring the caller to ensure mutual exclusion for
     // correctness. Only the last task to call this function is notified.
-    pub(crate) fn poll_write_io<R>(
-        &self,
-        cx: &mut Context<'_>,
-        f: impl FnMut() -> io::Result<R>,
-    ) -> Poll<io::Result<R>> {
+    pub(crate) fn poll_write_io<R>(&self, cx: &mut Context<'_>, f: impl FnMut() -> io::Result<R>) -> Poll<io::Result<R>> {
         self.poll_io(cx, Direction::Write, f)
     }
 
@@ -141,11 +134,7 @@ impl Registration {
     ///
     /// If called with a task context, notify the task when a new event is
     /// received.
-    fn poll_ready(
-        &self,
-        cx: &mut Context<'_>,
-        direction: Direction,
-    ) -> Poll<io::Result<ReadyEvent>> {
+    fn poll_ready(&self, cx: &mut Context<'_>, direction: Direction) -> Poll<io::Result<ReadyEvent>> {
         ready!(crate::trace::trace_leaf(cx));
         // Keep track of task budget
         let coop = ready!(crate::runtime::coop::poll_proceed(cx));
@@ -180,11 +169,7 @@ impl Registration {
         }
     }
 
-    pub(crate) fn try_io<R>(
-        &self,
-        interest: Interest,
-        f: impl FnOnce() -> io::Result<R>,
-    ) -> io::Result<R> {
+    pub(crate) fn try_io<R>(&self, interest: Interest, f: impl FnOnce() -> io::Result<R>) -> io::Result<R> {
         let ev = self.shared.ready_event(interest);
 
         // Don't attempt the operation if the resource is not ready.
@@ -211,11 +196,7 @@ impl Registration {
         Ok(ev)
     }
 
-    pub(crate) async fn async_io<R>(
-        &self,
-        interest: Interest,
-        mut f: impl FnMut() -> io::Result<R>,
-    ) -> io::Result<R> {
+    pub(crate) async fn async_io<R>(&self, interest: Interest, mut f: impl FnMut() -> io::Result<R>) -> io::Result<R> {
         loop {
             let event = self.readiness(interest).await?;
 
@@ -252,8 +233,5 @@ impl Drop for Registration {
 }
 
 fn gone() -> io::Error {
-    io::Error::new(
-        io::ErrorKind::Other,
-        crate::util::error::RUNTIME_SHUTTING_DOWN_ERROR,
-    )
+    io::Error::new(io::ErrorKind::Other, crate::util::error::RUNTIME_SHUTTING_DOWN_ERROR)
 }

@@ -25,7 +25,7 @@
 mod addr;
 cfg_not_wasi! {
     #[cfg(feature = "net")]
-    #[cfg(not(target_env = "sgx"))]
+    #[cfg(not(any(target_env = "sgx", target_env = "fortanixvme")))]
     pub(crate) use addr::to_socket_addrs;
 }
 pub use addr::ToSocketAddrs;
@@ -38,21 +38,26 @@ cfg_net! {
     pub use tcp::listener::TcpListener;
     pub use tcp::stream::TcpStream;
     cfg_not_wasi! {
-        #[cfg(not(target_env = "sgx"))]
+        #[cfg(not(any(target_env = "sgx", target_env = "fortanixvme")))]
         pub use tcp::socket::TcpSocket;
 
-        #[cfg(not(target_env = "sgx"))]
+        #[cfg(not(any(target_env = "sgx", target_env = "fortanixvme")))]
         mod udp;
-        #[cfg(not(target_env = "sgx"))]
+        #[cfg(not(any(target_env = "sgx", target_env = "fortanixvme")))]
         pub use udp::UdpSocket;
     }
 }
 
 cfg_net_unix! {
+    #[cfg(not(target_env = "fortanixvme"))]
     pub mod unix;
+    #[cfg(not(target_env = "fortanixvme"))]
     pub use unix::datagram::socket::UnixDatagram;
+    #[cfg(not(target_env = "fortanixvme"))]
     pub use unix::listener::UnixListener;
+    #[cfg(not(target_env = "fortanixvme"))]
     pub use unix::stream::UnixStream;
+    #[cfg(not(target_env = "fortanixvme"))]
     pub use unix::socket::UnixSocket;
 }
 

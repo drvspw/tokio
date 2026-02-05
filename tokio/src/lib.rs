@@ -4,18 +4,10 @@
     clippy::module_inception,
     clippy::needless_doctest_main
 )]
-#![warn(
-    missing_debug_implementations,
-    missing_docs,
-    rust_2018_idioms,
-    unreachable_pub
-)]
+#![warn(missing_debug_implementations, missing_docs, rust_2018_idioms, unreachable_pub)]
 #![deny(unused_must_use)]
-#![doc(test(
-    no_crate_inject,
-    attr(deny(warnings, rust_2018_idioms), allow(dead_code, unused_variables))
-))]
-#![cfg_attr(target_env = "sgx", feature(sgx_platform))]
+#![doc(test(no_crate_inject, attr(deny(warnings, rust_2018_idioms), allow(dead_code, unused_variables))))]
+#![cfg_attr(target_env = "sgx", target_env = "fortanixvme", feature(sgx_platform))]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, allow(unused_attributes))]
 #![cfg_attr(loom, allow(dead_code, unreachable_pub))]
@@ -447,11 +439,7 @@
 // least 32 bits, which a lot of components in Tokio currently assumes.
 //
 // TODO: improve once we have MSRV access to const eval to make more flexible.
-#[cfg(not(any(
-    target_pointer_width = "32",
-    target_pointer_width = "64",
-    target_pointer_width = "128"
-)))]
+#[cfg(not(any(target_pointer_width = "32", target_pointer_width = "64", target_pointer_width = "128")))]
 compile_error! {
     "Tokio requires the platform pointer width to be 32, 64, or 128 bits"
 }
@@ -508,12 +496,7 @@ cfg_process! {
     pub mod process;
 }
 
-#[cfg(any(
-    feature = "fs",
-    feature = "io-std",
-    feature = "net",
-    all(windows, feature = "process"),
-))]
+#[cfg(any(feature = "fs", feature = "io-std", feature = "net", all(windows, feature = "process"),))]
 mod blocking;
 
 cfg_rt! {
@@ -631,13 +614,13 @@ pub mod stream {}
 #[cfg(docsrs)]
 pub mod doc;
 
-#[cfg(docsrs)]
-#[allow(unused)]
-pub(crate) use self::doc::os;
-
 #[cfg(not(docsrs))]
 #[allow(unused)]
 pub(crate) use std::os;
+
+#[cfg(docsrs)]
+#[allow(unused)]
+pub(crate) use self::doc::os;
 
 cfg_macros! {
     /// Implementation detail of the `select!` macro. This macro is **not**

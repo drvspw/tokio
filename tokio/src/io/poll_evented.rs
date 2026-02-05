@@ -1,12 +1,12 @@
+use std::ops::Deref;
+use std::panic::{RefUnwindSafe, UnwindSafe};
+use std::{fmt, io};
+
+use mio::event::Source;
+
 use crate::io::interest::Interest;
 use crate::runtime::io::Registration;
 use crate::runtime::scheduler;
-
-use mio::event::Source;
-use std::fmt;
-use std::io;
-use std::ops::Deref;
-use std::panic::{RefUnwindSafe, UnwindSafe};
 
 cfg_io_driver! {
     /// Associates an I/O resource that implements the [`std::io::Read`] and/or
@@ -111,11 +111,7 @@ impl<E: Source> PollEvented<E> {
     }
 
     #[track_caller]
-    pub(crate) fn new_with_interest_and_handle(
-        mut io: E,
-        interest: Interest,
-        handle: scheduler::Handle,
-    ) -> io::Result<Self> {
+    pub(crate) fn new_with_interest_and_handle(mut io: E, interest: Interest, handle: scheduler::Handle) -> io::Result<Self> {
         let registration = Registration::new_with_interest_and_handle(&mut io, interest, handle)?;
         Ok(Self {
             io: Some(io),
@@ -131,7 +127,7 @@ impl<E: Source> PollEvented<E> {
 
     /// Deregisters the inner io from the registration and returns a Result containing the inner io.
     #[cfg(any(feature = "net", feature = "process"))]
-    #[cfg(not(target_env = "sgx"))]
+    #[cfg(not(any(target_env = "sgx", target_env = "fortanixvme")))]
     pub(crate) fn into_inner(mut self) -> io::Result<E> {
         let mut inner = self.io.take().unwrap(); // As io shouldn't ever be None, just unwrap here.
         self.registration.deregister(&mut inner)?;
@@ -140,10 +136,7 @@ impl<E: Source> PollEvented<E> {
 
     #[cfg(all(feature = "process", target_os = "linux"))]
     pub(crate) fn poll_read_ready(&self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.registration
-            .poll_read_ready(cx)
-            .map_err(io::Error::from)
-            .map_ok(|_| ())
+        self.registration.poll_read_ready(cx).map_err(io::Error::from).map_ok(|_| ())
     }
 
     /// Re-register under new runtime with `interest`.
@@ -151,8 +144,7 @@ impl<E: Source> PollEvented<E> {
     pub(crate) fn reregister(&mut self, interest: Interest) -> io::Result<()> {
         let io = self.io.as_mut().unwrap(); // As io shouldn't ever be None, just unwrap here.
         let _ = self.registration.deregister(io);
-        self.registration =
-            Registration::new_with_interest_and_handle(io, interest, scheduler::Handle::current())?;
+        self.registration = Registration::new_with_interest_and_handle(io, interest, scheduler::Handle::current())?;
 
         Ok(())
     }

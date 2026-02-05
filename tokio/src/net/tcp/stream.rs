@@ -1,21 +1,20 @@
 cfg_not_wasi! {
     use crate::future::poll_fn;
     use crate::net::ToSocketAddrs;
-    #[cfg(not(target_env = "sgx"))]
+    #[cfg(not(any(target_env = "sgx", target_env = "fortanixvme")))]
     use crate::net::to_socket_addrs;
-    #[cfg(not(target_env = "sgx"))]
+    #[cfg(not(any(target_env = "sgx", target_env = "fortanixvme")))]
     use std::time::Duration;
 }
+
+use std::net::{Shutdown, SocketAddr};
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use std::{fmt, io};
 
 use crate::io::{AsyncRead, AsyncWrite, Interest, PollEvented, ReadBuf, Ready};
 use crate::net::tcp::split::{split, ReadHalf, WriteHalf};
 use crate::net::tcp::split_owned::{split_owned, OwnedReadHalf, OwnedWriteHalf};
-
-use std::fmt;
-use std::io;
-use std::net::{Shutdown, SocketAddr};
-use std::pin::Pin;
-use std::task::{Context, Poll};
 
 cfg_io_util! {
     use bytes::BufMut;
@@ -116,8 +115,8 @@ impl TcpStream {
         /// [`AsyncWriteExt`]: trait@crate::io::AsyncWriteExt
         pub async fn connect<A: ToSocketAddrs>(addr: A) -> io::Result<TcpStream> {
             let addrs = {
-                #[cfg(not(target_env = "sgx"))] { to_socket_addrs(addr).await? }
-                #[cfg(target_env = "sgx")] { addr.to_string_addrs() }
+                #[cfg(not(any(target_env = "sgx", target_env = "fortanixvme")))] { to_socket_addrs(addr).await? }
+                #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))] { addr.to_string_addrs() }
             };
 
             let mut last_err = None;
@@ -138,14 +137,14 @@ impl TcpStream {
         }
 
         /// Establishes a connection to the specified `addr`.
-        #[cfg(not(target_env = "sgx"))]
+        #[cfg(not(any(target_env = "sgx", target_env = "fortanixvme")))]
         async fn connect_addr(addr: SocketAddr) -> io::Result<TcpStream> {
             let sys = mio::net::TcpStream::connect(addr)?;
             TcpStream::connect_mio(sys).await
         }
 
         /// Establishes a connection to the specified `addr`.
-        #[cfg(target_env = "sgx")]
+        #[cfg(any(target_env = "sgx", target_env = "fortanixvme"))]
         async fn connect_addr(addr: String) -> io::Result<TcpStream> {
             let sys = mio::net::TcpStream::connect_str(&addr)?;
             TcpStream::connect_mio(sys).await
@@ -257,7 +256,7 @@ impl TcpStream {
     /// [`tokio::net::TcpStream`]: TcpStream
     /// [`std::net::TcpStream`]: std::net::TcpStream
     /// [`set_nonblocking`]: fn@std::net::TcpStream::set_nonblocking
-    #[cfg(not(target_env = "sgx"))] // `TcpStream::into_raw_fd()` not support by `mio` for SGX platform
+    #[cfg(not(any(target_env = "sgx", target_env = "fortanixvme")))] // `TcpStream::into_raw_fd()` not support by `mio` for SGX platform
     pub fn into_std(self) -> io::Result<std::net::TcpStream> {
         #[cfg(unix)]
         {
@@ -370,17 +369,11 @@ impl TcpStream {
     ///     Ok(())
     /// }
     /// ```
-    pub fn poll_peek(
-        &self,
-        cx: &mut Context<'_>,
-        buf: &mut ReadBuf<'_>,
-    ) -> Poll<io::Result<usize>> {
+    pub fn poll_peek(&self, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<usize>> {
         loop {
             let ev = ready!(self.io.registration().poll_read_ready(cx))?;
 
-            let b = unsafe {
-                &mut *(buf.unfilled_mut() as *mut [std::mem::MaybeUninit<u8>] as *mut [u8])
-            };
+            let b = unsafe { &mut *(buf.unfilled_mut() as *mut [std::mem::MaybeUninit<u8>] as *mut [u8]) };
 
             match self.io.peek(b) {
                 Ok(ret) => {
@@ -628,9 +621,7 @@ impl TcpStream {
     pub fn try_read(&self, buf: &mut [u8]) -> io::Result<usize> {
         use std::io::Read;
 
-        self.io
-            .registration()
-            .try_io(Interest::READABLE, || (&*self.io).read(buf))
+        self.io.registration().try_io(Interest::READABLE, || (&*self.io).read(buf))
     }
 
     /// Tries to read data from the stream into the provided buffers, returning
@@ -925,9 +916,7 @@ impl TcpStream {
     pub fn try_write(&self, buf: &[u8]) -> io::Result<usize> {
         use std::io::Write;
 
-        self.io
-            .registration()
-            .try_io(Interest::WRITABLE, || (&*self.io).write(buf))
+        self.io.registration().try_io(Interest::WRITABLE, || (&*self.io).write(buf))
     }
 
     /// Tries to write several buffers to the stream, returning how many bytes
@@ -1024,14 +1013,8 @@ impl TcpStream {
     /// [`readable()`]: TcpStream::readable()
     /// [`writable()`]: TcpStream::writable()
     /// [`ready()`]: TcpStream::ready()
-    pub fn try_io<R>(
-        &self,
-        interest: Interest,
-        f: impl FnOnce() -> io::Result<R>,
-    ) -> io::Result<R> {
-        self.io
-            .registration()
-            .try_io(interest, || self.io.try_io(f))
+    pub fn try_io<R>(&self, interest: Interest, f: impl FnOnce() -> io::Result<R>) -> io::Result<R> {
+        self.io.registration().try_io(interest, || self.io.try_io(f))
     }
 
     /// Reads or writes from the socket using a user-provided IO operation.
@@ -1059,15 +1042,8 @@ impl TcpStream {
     /// The closure should perform only one type of IO operation, so it should not
     /// require more than one ready state. This method may panic or sleep forever
     /// if it is called with a combined interest.
-    pub async fn async_io<R>(
-        &self,
-        interest: Interest,
-        mut f: impl FnMut() -> io::Result<R>,
-    ) -> io::Result<R> {
-        self.io
-            .registration()
-            .async_io(interest, || self.io.try_io(&mut f))
-            .await
+    pub async fn async_io<R>(&self, interest: Interest, mut f: impl FnMut() -> io::Result<R>) -> io::Result<R> {
+        self.io.registration().async_io(interest, || self.io.try_io(&mut f)).await
     }
 
     /// Receives data on the socket from the remote address to which it is
@@ -1169,7 +1145,7 @@ impl TcpStream {
         self.io.set_nodelay(nodelay)
     }
 
-    #[cfg(not(target_env = "sgx"))]
+    #[cfg(not(any(target_env = "sgx", target_env = "fortanixvme")))]
     cfg_not_wasi! {
         /// Reads the linger duration for this socket by getting the `SO_LINGER`
         /// option.
@@ -1298,28 +1274,16 @@ impl TcpStream {
     // `poll_read_ready` or `poll_write_ready` methods with the `try_read` or
     // `try_write` methods.
 
-    pub(crate) fn poll_read_priv(
-        &self,
-        cx: &mut Context<'_>,
-        buf: &mut ReadBuf<'_>,
-    ) -> Poll<io::Result<()>> {
+    pub(crate) fn poll_read_priv(&self, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
         // Safety: `TcpStream::read` correctly handles reads into uninitialized memory
         unsafe { self.io.poll_read(cx, buf) }
     }
 
-    pub(super) fn poll_write_priv(
-        &self,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<io::Result<usize>> {
+    pub(super) fn poll_write_priv(&self, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
         self.io.poll_write(cx, buf)
     }
 
-    pub(super) fn poll_write_vectored_priv(
-        &self,
-        cx: &mut Context<'_>,
-        bufs: &[io::IoSlice<'_>],
-    ) -> Poll<io::Result<usize>> {
+    pub(super) fn poll_write_vectored_priv(&self, cx: &mut Context<'_>, bufs: &[io::IoSlice<'_>]) -> Poll<io::Result<usize>> {
         self.io.poll_write_vectored(cx, bufs)
     }
 }
@@ -1339,29 +1303,17 @@ impl TryFrom<std::net::TcpStream> for TcpStream {
 // ===== impl Read / Write =====
 
 impl AsyncRead for TcpStream {
-    fn poll_read(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut ReadBuf<'_>,
-    ) -> Poll<io::Result<()>> {
+    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
         self.poll_read_priv(cx, buf)
     }
 }
 
 impl AsyncWrite for TcpStream {
-    fn poll_write(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<io::Result<usize>> {
+    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
         self.poll_write_priv(cx, buf)
     }
 
-    fn poll_write_vectored(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        bufs: &[io::IoSlice<'_>],
-    ) -> Poll<io::Result<usize>> {
+    fn poll_write_vectored(self: Pin<&mut Self>, cx: &mut Context<'_>, bufs: &[io::IoSlice<'_>]) -> Poll<io::Result<usize>> {
         self.poll_write_vectored_priv(cx, bufs)
     }
 
@@ -1389,8 +1341,9 @@ impl fmt::Debug for TcpStream {
 
 #[cfg(unix)]
 mod sys {
-    use super::TcpStream;
     use std::os::unix::prelude::*;
+
+    use super::TcpStream;
 
     impl AsRawFd for TcpStream {
         fn as_raw_fd(&self) -> RawFd {
@@ -1423,8 +1376,9 @@ cfg_windows! {
 
 #[cfg(all(tokio_unstable, target_os = "wasi"))]
 mod sys {
-    use super::TcpStream;
     use std::os::wasi::prelude::*;
+
+    use super::TcpStream;
 
     impl AsRawFd for TcpStream {
         fn as_raw_fd(&self) -> RawFd {

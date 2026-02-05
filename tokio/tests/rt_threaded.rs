@@ -1,13 +1,6 @@
 #![warn(rust_2018_idioms)]
 #![cfg(all(any(feature = "full", feature = "full-sgx"), not(target_os = "wasi")))]
 
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
-use tokio::runtime;
-use tokio::sync::oneshot;
-use tokio_test::{assert_err, assert_ok};
-
-use futures::future::poll_fn;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::atomic::AtomicUsize;
@@ -15,13 +8,20 @@ use std::sync::atomic::Ordering::Relaxed;
 use std::sync::{mpsc, Arc, Mutex};
 use std::task::{Context, Poll, Waker};
 
+use futures::future::poll_fn;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::{TcpListener, TcpStream};
+use tokio::runtime;
+use tokio::sync::oneshot;
+use tokio_test::{assert_err, assert_ok};
+
 macro_rules! cfg_metrics {
     ($($t:tt)*) => {
         #[cfg(tokio_unstable)]
         {
             $( $t )*
         }
-    }
+    };
 }
 
 #[test]
@@ -444,18 +444,13 @@ fn coop_and_block_in_place() {
 
 #[test]
 fn yield_after_block_in_place() {
-    let rt = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(1)
-        .build()
-        .unwrap();
+    let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(1).build().unwrap();
 
     rt.block_on(async {
         tokio::spawn(async move {
             // Block in place then enter a new runtime
             tokio::task::block_in_place(|| {
-                let rt = tokio::runtime::Builder::new_current_thread()
-                    .build()
-                    .unwrap();
+                let rt = tokio::runtime::Builder::new_current_thread().build().unwrap();
 
                 rt.block_on(async {});
             });
@@ -622,16 +617,13 @@ fn test_nested_block_in_place_with_block_on_between() {
 // is sufficient. If there is a regression, this test will hang. In theory, we
 // could add limits, but that would be likely to fail on CI.
 #[test]
-#[cfg(not(target_env = "sgx"))] // Test freezes on SGX
+#[cfg(not(any(target_env = "sgx", target_env = "fortanixvme")))] // Test freezes on SGX
 #[cfg(not(tokio_no_tuning_tests))]
 fn test_tuning() {
     use std::sync::atomic::AtomicBool;
     use std::time::Duration;
 
-    let rt = runtime::Builder::new_multi_thread()
-        .worker_threads(1)
-        .build()
-        .unwrap();
+    let rt = runtime::Builder::new_multi_thread().worker_threads(1).build().unwrap();
 
     fn iter(flag: Arc<AtomicBool>, counter: Arc<AtomicUsize>, stall: bool) {
         if flag.load(Relaxed) {
